@@ -4,22 +4,30 @@ from .models import Hub, Connection
 
 class Parser:
     @staticmethod
-    def parse(data: list[str]) -> dict[str, Any]:
+    def parse(raw_data: list[str]) -> dict[str, Any]:
+        data: list[str] = list(filter(lambda line: line and not line.
+                                      startswith("#"), raw_data))
         if not data[0].startswith("nb_drones:"):
             raise ValueError("Map file must start with: nb_drones: "
-                             "<positive_integer>")
-        elif (len([line for line in data if line.startswith("start_hub")])
+                             "<positive_integer>\nLine: 1")
+        elif (len([line for line in data if line.startswith("start_hub: ")])
               == 0):
             raise ValueError("Map file must have one 'start_hub' property")
-        elif (len([line for line in data if line.startswith("start_hub")]) > 1
-              ):
+        elif (len([line for line in data if line.startswith("start_hub: ")])
+              > 1):
+            error = [(index, line) for index, line in enumerate(raw_data) if
+                     line.startswith("start_hub: ")][1]
             raise ValueError("There can only be one 'start_hub' property in "
-                             "the map file")
-        elif (len([line for line in data if line.startswith("end_hub")]) == 0):
+                             f"the map file\nLine: {error[0] + 1}")
+        elif (len([line for line in data if line.startswith("end_hub: ")])
+              == 0):
             raise ValueError("Map file must have one 'end_hub' property")
-        elif (len([line for line in data if line.startswith("end_hub")]) > 1):
+        elif (len([line for line in data if line.startswith("end_hub: ")])
+              > 1):
+            error = [(index, line) for index, line in enumerate(raw_data) if
+                     line.startswith("end_hub: ")][1]
             raise ValueError("There can only be one 'end_hub' property in the "
-                             "map file")
+                             f"map file\nLine: {error[0] + 1}")
         map: dict[str, Any] = {}
         hubs: list[Hub] = []
         connections: list[Connection] = []
@@ -50,8 +58,7 @@ class Parser:
             data_list = data.split(" ", 3)
             metadata: dict[str, Any] = {}
             if len(data_list) == 4:
-                metadata = parse_metadata(data_list[3], ["color",
-                                                         "zone",
+                metadata = parse_metadata(data_list[3], ["color", "zone",
                                                          "max_drones"])
             hub: dict[str, Any] = {
                 "name": data_list[0],
@@ -67,8 +74,8 @@ class Parser:
             if len(data_list) == 2:
                 metadata = parse_metadata(data_list[1], ["max_link_capacity"])
             con: dict[str, Any] = {
-                "hub_1": hub_1,
-                "hub_2": hub_2,
+                "hub_1": hub_1 if hub_1 < hub_2 else hub_2,
+                "hub_2": hub_2 if hub_1 < hub_2 else hub_1,
                 **metadata
             }
             return con
@@ -83,6 +90,10 @@ class Parser:
                 map[key] = value.strip()
             map["hubs"] = hubs
             map["connections"] = connections
-        map["start_hub"] = Hub(**parse_hub(map["start_hub"]))
-        map["end_hub"] = Hub(**parse_hub(map["end_hub"]))
+        parsed_start: dict[str, Any] = parse_hub(map["start_hub"])
+        parsed_start.pop("max_drones", None)
+        parsed_end: dict[str, Any] = parse_hub(map["end_hub"])
+        parsed_end.pop("max_drones", None)
+        map["start_hub"] = Hub(**parsed_start)
+        map["end_hub"] = Hub(**parsed_end)
         return map

@@ -1,12 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
-from enum import Enum
-
-
-class ZoneType(Enum):
-    NORMAL = "normal"
-    BLOCKED = "blocked"
-    RESTRICTED = "restricted"
-    PRIORITY = "priority"
+from .const import ZoneType
 
 
 class Hub(BaseModel):
@@ -37,9 +30,7 @@ class Connection(BaseModel):
 
 class Drone(BaseModel):
     name: str
-    start_hub: str
-    end_hub: str
-    current_hub: str = ""
+    current_hub: str
     path: list[str] = []
     waiting_turns: int = Field(ge=0, default=0)
     delivered: bool = False
@@ -67,13 +58,15 @@ class Map(BaseModel):
         if len(hub_coords) != len(set(hub_coords)):
             raise ValueError("Every hubs coordenates must be unique")
         if len(con_hubs) != len(set(con_hubs)):
-            raise ValueError("Every connection pair of connected hubs must be "
-                             "unique")
-        for connection in self.connections:
-            if connection.hub_1 not in hub_names:
+            raise ValueError("Every connection must be unique")
+        for con in self.connections:
+            if con.hub_1 not in hub_names:
                 raise ValueError("Unknown Hub in connection "
-                                 f"'{connection.hub_1}'")
-            elif connection.hub_2 not in hub_names:
+                                 f"'{con.hub_1}'")
+            elif con.hub_2 not in hub_names:
                 raise ValueError("Unknown Hub in connection "
-                                 f"'{connection.hub_2}'")
+                                 f"'{con.hub_2}'")
+        if (self.start_hub.zone == ZoneType.BLOCKED or
+                self.end_hub.zone == ZoneType.BLOCKED):
+            raise ValueError("start_hub and end_hub cannot be blocked zones")
         return self

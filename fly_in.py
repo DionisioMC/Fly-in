@@ -9,12 +9,12 @@ def main() -> None:
         try:
             with open(argv[1]) as file:
                 data: dict[str, Any] = Parser.parse([line for line in file.
-                                                     read().splitlines()
-                                                     if line and not
-                                                     line.startswith("#")])
-                fly_map = Map(**data)
-                algorithm = Algorithm(fly_map)
-                algorithm.run()
+                                                     read().splitlines()])
+                fly_map: Map = Map(**data)
+                algorithm: Algorithm = Algorithm(fly_map)
+                turn_moves: dict[int, list[str]] = algorithm.run()
+                for turn, moves in turn_moves.items():
+                    print(f"Turn {turn}: {' '.join(moves)}")
         except ValidationError as e:
             for error in e.errors():
                 message: str = ""

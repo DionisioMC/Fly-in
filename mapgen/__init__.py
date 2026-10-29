@@ -1,5 +1,4 @@
-from .models import Hub, Connection, Drone
-from .map import Map
+from .models import Hub, Connection, Drone, Map
 from .parser import Parser
 from .algorithm import Algorithm
 
