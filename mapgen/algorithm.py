@@ -64,14 +64,8 @@ class Algorithm:
         if not self.occupied_cons[name]:
             self.occupied_cons.pop(name)
 
-    def save_turn_state(self) -> None:
-        self.turn_states[self.turn_num] = {hub.name: 0 for hub in self.hubs}
-        for drone in self.drones:
-            self.turn_states[self.turn_num][drone.current_hub] += 1
-
     def run(self) -> dict[int, list[str]]:
         simul_result: dict[int, list[str]] = {}
-        self.save_turn_state()
         while not all(drone.delivered for drone in self.drones):
             self.turn_num += 1
             current_turn_moves: list[str] = []
@@ -100,7 +94,10 @@ class Algorithm:
                 current_turn_moves.append(f"{drone.name}-{destiny_hub}")
             if current_turn_moves:
                 simul_result[self.turn_num] = current_turn_moves
-            self.save_turn_state()
+            self.turn_states[self.turn_num] = {hub.name: 0 for hub in
+                                               self.hubs}
+            for drone in self.drones:
+                self.turn_states[self.turn_num][drone.current_hub] += 1
         return simul_result
 
     def build_map(self) -> None:
