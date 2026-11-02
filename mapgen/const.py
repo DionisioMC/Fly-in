@@ -12,5 +12,4 @@ class MovementCosts(Enum):
     NORMAL = 1
     PRIORITY = 1
     RESTRICTED = 2
-    BLOCKED = -1
     DEFAULT = 1
