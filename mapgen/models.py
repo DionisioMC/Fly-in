@@ -32,7 +32,9 @@ class Drone(BaseModel):
     name: str
     current_hub: str
     path: list[str] = []
-    waiting_turns: int = Field(ge=0, default=0)
+    in_transit: bool = False
+    transit_destination: str | None = None
+    transit_connection: tuple[str, str] | None = None
     delivered: bool = False
 
 
