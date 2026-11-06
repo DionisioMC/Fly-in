@@ -1,4 +1,4 @@
-from sys import argv, exit
+from sys import argv
 from mapgen import Parser, Map, Algorithm
 from pydantic import ValidationError
 from typing import Any
@@ -23,10 +23,10 @@ def main() -> None:
                 else:
                     message = error["msg"]
                 print(f"Error: {message}")
-            exit(1)
         except ValueError as e:
             print(f"Error: {e}")
-            exit(1)
+        except Exception:
+            print(f"file '{argv[1]}' not found")
     else:
         print("Usage: python3 main.py map.txt")
 

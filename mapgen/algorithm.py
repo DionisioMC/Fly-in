@@ -1,14 +1,14 @@
 from .models import Drone, Hub, Connection, Map
 from .const import ZoneType, MovementCosts
+import heapq
 
 
 class Algorithm:
     def __init__(self, map: Map):
-        self.drones: list[Drone] = []
-        for i in range(1, map.nb_drones + 1):
-            self.drones.append(Drone(
-                name=f"D{i}",
-                current_hub=map.start_hub.name))
+        self.drones: list[Drone] = [
+            Drone(name=f"D{i}", current_hub=map.start_hub.name)
+            for i in range(1, map.nb_drones + 1)
+        ]
         self.start_hub = map.start_hub
         self.end_hub = map.end_hub
         self.hubs: list[Hub] = [map.start_hub, map.end_hub, *map.hubs]
@@ -18,14 +18,12 @@ class Algorithm:
         self.map: dict[str, list[str]] = {
             hub.name: [] for hub in self.hubs
         }
-        for connection in map.connections:
-            hub_1, hub_2 = connection.hub_1, connection.hub_2
-            self.map[hub_1].append(hub_2)
-            self.map[hub_2].append(hub_1)
+        for con in map.connections:
+            self.map[con.hub_1].append(con.hub_2)
+            self.map[con.hub_2].append(con.hub_1)
         self.occupied_hubs: dict[str, list[Drone]] = {
             self.start_hub.name: self.drones.copy()
         }
-        self.occupied_cons: dict[tuple[str, str], list[Drone]] = {}
         self.turn_num = 0
         self.connection_dict: dict[tuple[str, str], Connection] = {
             (con.hub_1, con.hub_2): con
@@ -39,92 +37,78 @@ class Algorithm:
 
     def get_path(self, traced_path: dict[str, str], start: str, end: str
                  ) -> list[str]:
-        current = end
-        path: list[str] = []
-        if end == start:
-            return [start]
-        while current != start:
-            path.append(current)
-            current = traced_path[current]
-        path.append(start)
+        path: list[str] = [end]
+        while path[-1] != start:
+            path.append(traced_path[path[-1]])
         path.reverse()
         return path
 
     def resolve_movements(self, proposed_moves: list[tuple[Drone, str, str]]
                           ) -> list[tuple[Drone, str, str]]:
         accepted: list[tuple[Drone, str, str]] = proposed_moves.copy()
-        changed: bool = True
-        while changed:
-            changed = False
+        while True:
+            keys = [self.get_con_key(move[1], move[2]) for move in accepted]
             connection_usage: dict[tuple[str, str], int] = {}
-            for drone in self.drones:
-                if drone.in_transit and drone.transit_connection:
-                    key = drone.transit_connection
-                    connection_usage[key] = (
-                        connection_usage.get(key, 0) + 1)
-            for drone, origin, destination in accepted:
-                key = self.get_con_key(origin, destination)
+            for key in keys:
                 connection_usage[key] = connection_usage.get(key, 0) + 1
+            fixed: bool = False
             for key, count in connection_usage.items():
-                capacity: int = self.connection_dict[key].max_link_capacity
-                if count > capacity:
-                    con_candidates: list[tuple[Drone, str, str]] = [
-                        move for move in accepted
-                        if self.get_con_key(move[1], move[2]) == key
-                    ]
-                    con_excess: int = count - capacity
-                    for move in con_candidates[-con_excess:]:
-                        accepted.remove(move)
-                    changed = True
+                excess = count - self.connection_dict[key].max_link_capacity
+                if excess > 0:
+                    drop = set([i for i, k in enumerate(keys) if k == key]
+                               [-excess:])
+                    accepted = [m for i, m in enumerate(accepted) if i not in
+                                drop]
+                    fixed = True
+                    break
+            if fixed:
+                continue
             for hub in self.hubs:
                 if hub.name in (self.start_hub.name, self.end_hub.name):
                     continue
-                current: int = len(self.occupied_hubs.get(hub.name, []))
-                reserved: int = len(self.reserved_hubs.get(hub.name, []))
-                outgoing: int = len(
-                    list(filter(lambda move: move[1] == hub.name, accepted)))
-                incoming: int = len(
-                    list(filter(lambda move: move[2] == hub.name, accepted)))
-                final_occupancy: int = current + reserved + incoming - outgoing
-                if final_occupancy > hub.max_drones:
-                    hub_candidates: list[tuple[Drone, str, str]] = [
-                        move for move in accepted if move[2] == hub.name]
-                    hub_excess: int = final_occupancy - hub.max_drones
-                    for move in hub_candidates[-hub_excess:]:
-                        accepted.remove(move)
-                    changed = True
-        return accepted
+                incoming: int = len([m for m in accepted if m[2] == hub.name])
+                outgoing: int = len([m for m in accepted if m[1] == hub.name])
+                occupancy: int = (len(self.occupied_hubs.get(hub.name, []))
+                                  + len(self.reserved_hubs.get(hub.name, []))
+                                  + incoming - outgoing)
+                excess = occupancy - hub.max_drones
+                if excess > 0:
+                    drop = set([i for i, m in enumerate(accepted)
+                                if m[2] == hub.name][-excess:])
+                    accepted = [m for i, m in enumerate(accepted) if i not in
+                                drop]
+                    fixed = True
+                    break
+            if not fixed:
+                return accepted
 
-    def start_transit(self, drone: Drone, destination: str) -> None:
+    def _leave_hub(self, drone: Drone) -> None:
         origin = drone.current_hub
-        key = self.get_con_key(origin, destination)
         self.occupied_hubs[origin].remove(drone)
         if not self.occupied_hubs[origin]:
-            self.occupied_hubs.pop(origin, [])
+            self.occupied_hubs.pop(origin)
+
+    def start_transit(self, drone: Drone, destination: str) -> None:
+        self._leave_hub(drone)
         self.reserved_hubs.setdefault(destination, []).append(drone)
-        self.occupied_cons.setdefault(key, []).append(drone)
         drone.in_transit = True
         drone.transit_destination = destination
-        drone.transit_connection = key
+        drone.transit_connection = self.get_con_key(drone.current_hub,
+                                                    destination)
 
     def complete_transit(self, drone: Drone) -> None:
         destination: str | None = drone.transit_destination
-        key: tuple[str, str] | None = drone.transit_connection
-        if destination is None or key is None:
+        if destination is None:
             raise ValueError(f"{drone.name} has invalid transit information")
         self.reserved_hubs[destination].remove(drone)
         if not self.reserved_hubs[destination]:
             self.reserved_hubs.pop(destination)
-        self.occupied_cons[key].remove(drone)
-        if not self.occupied_cons[key]:
-            self.occupied_cons.pop(key)
+        drone.current_hub = destination
         drone.in_transit = False
         drone.transit_destination = None
         drone.transit_connection = None
-        drone.current_hub = destination
+        drone.delivered = destination == self.end_hub.name
         self.occupied_hubs.setdefault(destination, []).append(drone)
-        if destination == self.end_hub.name:
-            drone.delivered = True
 
     def get_shortest_path(self, start_hub: str, end_hub: str,
                           planned_occupancy: dict[str, int]
@@ -134,36 +118,32 @@ class Algorithm:
         traced_path: dict[str, str] = {}
         costs: dict[str, int] = {start_hub: 0}
         while queue:
-            current_cost, current_hub = queue.pop(0)
+            current_cost, current_hub = heapq.heappop(queue)
             if current_hub in visited:
                 continue
-            neighbors = [hub for hub in self.map[current_hub]]
+            if current_hub == end_hub:
+                break
             visited.add(current_hub)
-            for neigh in neighbors:
+            for neigh in self.map[current_hub]:
+                if neigh in visited:
+                    continue
                 hub: Hub = self.hub_dict[neigh]
                 if hub.zone == ZoneType.BLOCKED:
                     continue
-                drones_in_hub: int = planned_occupancy.get(neigh, 0)
-                hub_cost: int = MovementCosts[hub.zone.name].value
-                move_cost: int = hub_cost + drones_in_hub
-                new_cost: int = current_cost + move_cost
-                if ((neigh not in costs) or (new_cost < costs[neigh])):
+                new_cost: int = (current_cost + MovementCosts[hub.zone.name].
+                                 value + planned_occupancy.get(neigh, 0))
+                if new_cost < costs.get(neigh, 0):
                     costs[neigh] = new_cost
                     traced_path[neigh] = current_hub
-                    queue.append((new_cost, neigh))
-            if current_hub == end_hub:
-                break
-            queue = sorted(queue, key=lambda pair: pair[0])
+                    heapq.heappush(queue, (new_cost, neigh))
+        if end_hub not in costs:
+            return []
         return self.get_path(traced_path, start_hub, end_hub)
 
     def move_drone(self, drone: Drone, destiny_hub: str) -> None:
-        if drone.current_hub in self.occupied_hubs.keys():
-            self.occupied_hubs[drone.current_hub].remove(drone)
-            if not self.occupied_hubs[drone.current_hub]:
-                self.occupied_hubs.pop(drone.current_hub)
+        self._leave_hub(drone)
         drone.current_hub = destiny_hub
-        if destiny_hub == self.end_hub.name:
-            drone.delivered = True
+        drone.delivered = destiny_hub == self.end_hub.name
         self.occupied_hubs.setdefault(destiny_hub, []).append(drone)
 
     def run(self) -> dict[int, list[str]]:
@@ -211,7 +191,7 @@ class Algorithm:
                 current_turn_moves.append(
                     f"{drone.name}-{transit_destination}")
             if current_turn_moves:
-                simul_result[self.turn_num] = sorted(current_turn_moves,
-                                                     key=lambda move:
-                                                         move.split("-")[0])
+                simul_result[self.turn_num] = sorted(
+                    current_turn_moves,
+                    key=lambda move: int(move.split("-")[0][1:]))
         return simul_result

@@ -1,17 +1,17 @@
 NAME = fly_in.py
 
-CONFIG = map.txt
+FILE = map.txt
 
 CACHE = __pycache__ .mypy_cache mapgen/__pycache__
 
 run:
-	python3 $(NAME) $(CONFIG)
+	python3 $(NAME) $(FILE)
 
 install:
 	pip install -r requirements.txt
 
 debug:
-	python3 -m pdb $(NAME) $(CONFIG)
+	python3 -m pdb $(NAME) $(FILE)
 
 clean:
 	rm -rf $(CACHE)
