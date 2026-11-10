@@ -9,7 +9,6 @@ class ZoneType(Enum):
 
 
 class MovementCosts(Enum):
-    NORMAL = 1
-    PRIORITY = 1
-    RESTRICTED = 2
-    DEFAULT = 1
+    NORMAL = 10
+    PRIORITY = 9
+    RESTRICTED = 20
