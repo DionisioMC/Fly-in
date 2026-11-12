@@ -25,8 +25,6 @@ def main() -> None:
                 print(f"Error: {message}")
         except ValueError as e:
             print(f"Error: {e}")
-        except Exception:
-            print(f"file '{argv[1]}' not found")
     else:
         print("Usage: python3 main.py map.txt")
 

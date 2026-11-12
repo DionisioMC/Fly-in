@@ -1,5 +1,5 @@
 from .models import Drone, Map, Hub
-from .const import ZoneType
+from .const import ZoneType, Colors
 from .pathfinder import PathFinder
 
 
@@ -56,8 +56,8 @@ class Algorithm:
         self._leave_hub(drone)
         self.reserved_hubs.setdefault(dest, []).append(drone)
         drone.in_transit = True
-        drone.transit_destination = dest
-        drone.transit_connection = self.pathfinder.get_con_key(
+        drone.transit_dest = dest
+        drone.transit_con = self.pathfinder.get_con_key(
             drone.current_hub, dest)
 
     def _complete_transit(self, drone: Drone) -> None:
@@ -73,16 +73,14 @@ class Algorithm:
         Raises:
             ValueError: If the drone has no recorded transit destination.
         """
-        destination: str | None = drone.transit_destination
-        if destination is None:
-            raise ValueError(f"{drone.name} has invalid transit information")
+        destination: str = drone.transit_dest
         self.reserved_hubs[destination].remove(drone)
         if not self.reserved_hubs[destination]:
             self.reserved_hubs.pop(destination)
         drone.current_hub = destination
         drone.in_transit = False
-        drone.transit_destination = None
-        drone.transit_connection = None
+        drone.transit_dest = ""
+        drone.transit_con = ("", "")
         drone.delivered = (destination == self.end_hub.name)
         self.occupied_hubs.setdefault(destination, []).append(drone)
 
@@ -151,7 +149,7 @@ class Algorithm:
                     reserved: int = len(self.reserved_hubs.get(hub.name, ()))
                     departing_reservations = sum(
                         1 for drone in transits_to_complete
-                        if drone.transit_destination == hub.name
+                        if drone.transit_dest == hub.name
                     )
                     occupancy = (
                         current + reserved - departing_reservations
@@ -198,7 +196,7 @@ class Algorithm:
                     + len(self.reserved_hubs.get(hub.name, []))
                     - sum(
                         1 for drone in transits_to_complete
-                        if drone.transit_destination == hub.name
+                        if drone.transit_dest == hub.name
                     )
                 )
                 for hub in self.hubs
@@ -227,20 +225,42 @@ class Algorithm:
             accepted_moves: list[tuple[Drone, str, str]] = (
                 self._resolve_movements(proposed_moves, transits_to_complete))
             for drone in transits_to_complete:
-                transit_dest: str | None = drone.transit_destination
+                transit_dest: str = drone.transit_dest
+                color_dest: str = (self.pathfinder.hub_dict[dest].color
+                                   .upper())
+                if color_dest == Colors.RAINBOW.value:
+                    color_dest = Colors.random_color().value
+                colored_dest: str = (f"{Colors[color_dest].value}"
+                                     f"{transit_dest}{Colors.END.value}")
                 self._complete_transit(drone)
                 current_turn_moves.append(
-                    f"{drone.name}-{transit_dest}")
-            for drone, _, dest in accepted_moves:
+                    f"{drone.name}-{colored_dest}")
+            for drone, org, dest in accepted_moves:
                 hub = self.pathfinder.hub_dict[dest]
                 if hub.zone == ZoneType.RESTRICTED:
                     self._start_transit(drone, dest)
+                    color_org: str = (self.pathfinder.hub_dict[org].color
+                                      .upper())
+                    color_dest = (self.pathfinder.hub_dict[dest].color
+                                  .upper())
+                    if color_org == Colors.RAINBOW.value:
+                        color_org = Colors.random_color().value
+                    if color_dest == Colors.RAINBOW.value:
+                        color_dest = Colors.random_color().value
+                    colored_org: str = (f"{Colors[color_org].value}{org}"
+                                        f"{Colors.END.value}")
+                    colored_dest = (f"{Colors[color_dest].value}{dest}"
+                                    f"{Colors.END.value}")
                     current_turn_moves.append(
-                        f"{drone.name}-transit->{dest}")
+                        f"{drone.name}-{colored_org}-{colored_dest}")
                 else:
                     self._move_drone(drone, dest)
+                    color: str = self.pathfinder.hub_dict[dest].color.upper()
+                    if color == Colors.RAINBOW.value:
+                        color = Colors.random_color().name
                     current_turn_moves.append(
-                        f"{drone.name}-{dest}")
+                        f"{drone.name}-{Colors[color].value}{dest}"
+                        f"{Colors.END.value}")
             if not accepted_moves and not transits_to_complete:
                 raise ValueError(f"Simulation stuck at turn {self.turn_num}")
             if current_turn_moves:

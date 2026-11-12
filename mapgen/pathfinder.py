@@ -4,7 +4,22 @@ from .models import Hub, Map, Connection
 
 
 class PathFinder:
+    """Find routes between hubs while considering movement constraints.
+
+    Builds a graph representation of the map and uses Dijkstra's
+    algorithm to calculate paths. Path costs account for zone movement
+    costs, hub occupancy, and connection capacity.
+    """
     def __init__(self, map: Map, hubs: list[Hub]) -> None:
+        """Initialize the pathfinder using the provided map.
+
+        Builds the adjacency list, hub lookup dictionary, connection
+        lookup dictionary, and set of hubs with unlimited capacity.
+
+        Args:
+            map: Map containing hubs and their connections.
+            hubs: List of all hubs available on the map.
+        """
         self.map: dict[str, list[str]] = {
             hub.name: [] for hub in hubs
         }
@@ -22,11 +37,35 @@ class PathFinder:
 
     @staticmethod
     def get_con_key(hub_1: str, hub_2: str) -> tuple[str, str]:
+        """Generate a canonical key for a connection between two hubs.
+
+        Sorts the hub names alphabetically so that a connection has the
+        same key regardless of the order in which its endpoints are given.
+
+        Args:
+            hub_1: Name of the first hub.
+            hub_2: Name of the second hub.
+
+        Returns:
+            tuple[str, str]: Alphabetically ordered pair of hub names.
+        """
         return ((hub_1, hub_2) if hub_1 < hub_2
                 else (hub_2, hub_1))
 
     def _get_path(self, traced_path: dict[str, str], start: str, end: str
                   ) -> list[str]:
+        """Reconstruct a path using the predecessor dictionary.
+
+        Args:
+            traced_path: Dictionary mapping each visited hub to its
+                predecessor in the calculated path.
+            start: Name of the starting hub.
+            end: Name of the destination hub.
+
+        Returns:
+            list[str]: Ordered list of hub names forming the path,
+            including the starting and destination hubs.
+        """
         path: list[str] = [end]
         while path[-1] != start:
             path.append(traced_path[path[-1]])
@@ -37,6 +76,25 @@ class PathFinder:
             self, start_hub: str, end_hub: str,
             planned_occupancy: dict[str, int],
             con_usage: dict[tuple[str, str], int]) -> list[str]:
+        """Calculate the lowest-cost path between two hubs.
+
+        Uses Dijkstra's algorithm to find a route while avoiding blocked
+        zones and accounting for movement costs, planned hub occupancy,
+        and connection usage.
+
+        Args:
+            start_hub: Name of the hub from which the route begins.
+            end_hub: Name of the destination hub.
+            planned_occupancy: Dictionary mapping hub names to their
+                expected occupancy during the current turn.
+            con_usage: Dictionary mapping connection keys to the number
+                of drones currently planned to use each connection.
+
+        Returns:
+            list[str]: Ordered list of hub names representing the
+            lowest-cost path. Returns an empty list if no valid path
+            exists.
+        """
         queue: list[tuple[int, str]] = [(0, start_hub)]
         visited: set[str] = set()
         traced_path: dict[str, str] = {}
