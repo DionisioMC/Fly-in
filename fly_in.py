@@ -5,6 +5,19 @@ from typing import Any
 
 
 def main() -> None:
+    """Run the drone simulation using a map configuration file.
+
+    Reads the map file provided as a command-line argument, parses and
+    validates its contents, initializes the simulation, and prints the
+    movements performed during each turn.
+
+    Handles Pydantic validation errors, parsing errors, and invalid
+    simulation configurations by displaying appropriate error messages.
+
+    Raises:
+        No exceptions are propagated; ValidationError and ValueError
+        exceptions are caught and displayed to the user.
+    """
     if len(argv) == 2:
         try:
             with open(argv[1]) as file:

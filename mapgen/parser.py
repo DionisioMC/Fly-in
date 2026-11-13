@@ -39,10 +39,8 @@ class Parser:
             raise ValueError("Map file must have one 'start_hub' property")
         elif (len([line for line in data if line.startswith("start_hub: ")])
               > 1):
-            error = [(index, line) for index, line in enumerate(raw_data) if
-                     line.startswith("start_hub: ")][1]
             raise ValueError("There can only be one 'start_hub' property in "
-                             f"the map file\nLine: {error[0] + 1}")
+                             "the map file")
         elif (len([line for line in data if line.startswith("end_hub: ")])
               == 0):
             raise ValueError("Map file must have one 'end_hub' property")

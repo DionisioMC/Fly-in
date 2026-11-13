@@ -1,6 +1,6 @@
 NAME = fly_in.py
 
-FILE = map.txt
+FILE = maps/easy/01_linear_path.txt
 
 CACHE = __pycache__ .mypy_cache mapgen/__pycache__
 
