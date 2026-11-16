@@ -211,8 +211,35 @@ The use of colors also makes the output easier to scan when several drones are m
 ### Execution
 
 ```bash
-python3 fly_in.py map.txt
+python3 fly_in.py maps/easy/01_linear_path.txt
 ```
+
+Example output
+
+The following output illustrates a simulation involving six drones:
+
+```text
+Turn 1: D1-loop_a D2-loop_a
+Turn 2: D1-loop_b D2-loop_b D3-loop_a D4-loop_a
+Turn 3: D1-transit->exit_point D3-loop_b D5-loop_a
+Turn 4: D1-exit_point D2-transit->exit_point D4-loop_b D6-loop_a
+Turn 5: D1-goal D2-exit_point D3-transit->exit_point D5-loop_b
+Turn 6: D2-goal D3-exit_point D4-transit->exit_point D6-loop_b
+Turn 7: D3-goal D4-exit_point D5-transit->exit_point
+Turn 8: D4-goal D5-exit_point D6-transit->exit_point
+Turn 9: D5-goal D6-exit_point
+Turn 10: D6-goal
+```
+
+In this example:
+
+- Six drones travel through the map.
+
+- Drones share hubs and connections while respecting capacity limits.
+
+- Restricted-zone transit takes an additional turn.
+
+- All drones eventually reach the destination hub.
 
 ## Project Structure
 
@@ -230,8 +257,8 @@ Fly-in/
 ├── .gitignore
 ├── fly_in.py
 ├── Makefile
-└── README.md
-├── requirements.txt
+├── README.md
+└── requirements.txt
 ```
 
 The `mapgen/` module contains the project's core implementation, including data models, map parsing, and simulation logic.

@@ -38,6 +38,10 @@ def main() -> None:
                 print(f"Error: {message}")
         except ValueError as e:
             print(f"Error: {e}")
+        except FileNotFoundError:
+            print(f"Error: file '{argv[1]}' not found")
+        except PermissionError:
+            print(f"Error: file '{argv[1]}' does not have reading permission")
     else:
         print("Usage: python3 main.py map.txt")
 
